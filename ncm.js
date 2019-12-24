@@ -10,17 +10,17 @@
 
     //更改lrc_order内标识顺序,设置歌词输出顺序,删除即不获取
     //old_merge:并排合并歌词,newtype:并列合并,tran:翻译,origin:原版歌词,
-	/*
-	new_merge:并排合并歌词,在卡拉OK模式下仅高亮原语言歌词
-	不推荐使用,仅能即时获取歌词即时使用,不能保存,且若原词为全英文或英文符号则翻译前会显示时间轴
-	*/
+    /*
+    new_merge:并排合并歌词,在卡拉OK模式下仅高亮原语言歌词
+    不推荐使用,仅能即时获取歌词即时使用,不能保存,且若原词为全英文或英文符号则翻译前会显示时间轴
+    */
 var lrc_order = [
-        "old_merge",
-        "newtype",
-        "origin",
-        "tran", 
-		//"new_merge"
-    ];
+    "newtype",
+    "old_merge",
+    "origin",
+    "tran",
+    //"new_merge"
+];
 
 //搜索歌词数,如果经常搜不到试着改小或改大
 var limit = 4;
@@ -38,12 +38,13 @@ var savefix = 0.01;
 var timefix = 0.01;
 //当timefix有效时设置offset(毫秒),防闪
 var offset=-20;
-
+// 获取歌曲信息和歌词的API: 1：使用原有的API，2：使用NeteaseCloudMusicApi
+var apiType = 1;
 
 var xmlHttp = new ActiveXObject("WinHttp.WinHttpRequest.5.1");
 var debug = false;
 function get_my_name() {
-    return "网易云音乐";
+    return "网易云音乐_nopast";
 }
 
 function get_version() {
@@ -51,21 +52,13 @@ function get_version() {
 }
 
 function get_author() {
-    return "cimoc";
+    return "cimoc&nopast";
 }
 
-function start_search(info, callback) {
-    var searchURL, lyricURL;
-
-    //删除feat.及之后内容并保存
-    var str1 = del(info.Title, "feat.");
-    var str2 = del(info.Artist, "feat.");
-    var title = str1[0];
-    var outstr1 = str1[1];
-    var artist = str2[0];
-    var outstr2 = str2[1];
-    //搜索
-    var s = artist ? (title + "-" + artist) : title;
+function get_music_xmlHttp(s) {
+    if(apiType === 2) {
+        return get_music_xmlHttp_from_api(s)
+    }
     //searchURL = "http://music.163.com/api/search/get/web?csrf_token=";//如果下面的没用,试试改成这句
     searchURL = "http://music.163.com/api/search/get/";
     var post_data = 'hlpretag=<span class="s-fc7">&hlposttag=</span>&s=' + encodeURIComponent(s) + '&type=1&offset=0&total=true&limit=' + limit;
@@ -86,13 +79,92 @@ function start_search(info, callback) {
         debug && console("search failed");
         return;
     }
+    return xmlHttp
+}
+
+function get_music_xmlHttp_from_api(s) {
+    searchURL = "http://127.0.0.1:3000/search?keywords=" + encodeURIComponent(s);
+    try {
+        xmlHttp.Open("GET", searchURL, false);
+        //noinspection JSAnnotator
+        xmlHttp.Option(4) = 13056;
+        //noinspection JSAnnotator
+        xmlHttp.Option(6) = false;
+        // xmlHttp.SetRequestHeader("Host", "music.163.com");
+        // xmlHttp.SetRequestHeader("Origin", "http://music.163.com");
+        // xmlHttp.SetRequestHeader("Referer", "http://music.163.com/search/");
+        xmlHttp.SetRequestHeader("Connection", "Close");
+        xmlHttp.Send(null);
+    } catch (e) {
+        debug && console("search failed");
+        return;
+    }
+    return xmlHttp
+}
+
+function get_lyric_xmlHttp(res_id) {
+    //获取歌词
+    if(apiType === 2) {
+        return get_lyric_xmlHttp_from_api(res_id)
+    }
+    lyricURL = "http://music.163.com/api/song/lyric?os=pc&id=" + res_id + "&lv=-1&kv=-1&tv=-1";
+    try {
+        xmlHttp.Open("POST", lyricURL, false);
+        //noinspection JSAnnotator
+        xmlHttp.Option(4) = 13056;
+        //noinspection JSAnnotator
+        xmlHttp.Option(6) = false;
+        xmlHttp.SetRequestHeader("Cookie", "appver=1.5.0.75771");
+        xmlHttp.SetRequestHeader("Referer", "http://music.163.com/");
+        xmlHttp.SetRequestHeader("Connection", "Close");
+        xmlHttp.Send(null);
+    } catch (e) {
+        debug && console("Get Lyric failed");
+        return;
+    }
+    return xmlHttp
+}
+
+function get_lyric_xmlHttp_from_api(res_id) {
+    searchURL = "http://127.0.0.1:3000/lyric?id=" + res_id;
+    try {
+        xmlHttp.Open("GET", searchURL, false);
+        //noinspection JSAnnotator
+        xmlHttp.Option(4) = 13056;
+        //noinspection JSAnnotator
+        xmlHttp.Option(6) = false;
+        // xmlHttp.SetRequestHeader("Host", "music.163.com");
+        // xmlHttp.SetRequestHeader("Origin", "http://music.163.com");
+        // xmlHttp.SetRequestHeader("Referer", "http://music.163.com/search/");
+        xmlHttp.SetRequestHeader("Connection", "Close");
+        xmlHttp.Send(null);
+    } catch (e) {
+        debug && console("search failed");
+        return;
+    }
+    return xmlHttp
+}
+
+function start_search(info, callback) {
+    var searchURL, lyricURL;
+
+    //删除feat.及之后内容并保存
+    var str1 = del(info.Title, "feat.");
+    var str2 = del(info.Artist, "feat.");
+    var title = str1[0];
+    var outstr1 = str1[1];
+    var artist = str2[0];
+    var outstr2 = str2[1];
+    //搜索
+    var s = artist ? (title + "-" + artist) : title;
     var newLyric = callback.CreateLyric();
+    var xmlHttp =  get_music_xmlHttp(s)
 
     if (xmlHttp.Status == 200) {
         //  console(xmlHttp.responseText);
         var ncm_back = json(xmlHttp.responseText);
         var result = ncm_back.result;
-        if (ncm_back.code != 200 || !result.songCount) {
+        if (ncm_back.code != 200 || (!result.songs || !result.songs.length)) {
             debug && console("get info failed");
             return false;
         }
@@ -132,22 +204,7 @@ function start_search(info, callback) {
         var res_artist = song[b].artists[c].name;
         debug && console(res_id + "-" + res_name + "-" + res_artist);
 
-        //获取歌词
-        lyricURL = "http://music.163.com/api/song/lyric?os=pc&id=" + res_id + "&lv=-1&kv=-1&tv=-1";
-        try {
-            xmlHttp.Open("GET", lyricURL, false);
-            //noinspection JSAnnotator
-            xmlHttp.Option(4) = 13056;
-            //noinspection JSAnnotator
-            xmlHttp.Option(6) = false;
-            xmlHttp.SetRequestHeader("Cookie", "appver=1.5.0.75771");
-            xmlHttp.SetRequestHeader("Referer", "http://music.163.com/");
-            xmlHttp.SetRequestHeader("Connection", "Close");
-            xmlHttp.Send(post_data);
-        } catch (e) {
-            debug && console("Get Lyric failed");
-            return;
-        }
+        var xmlHttp = get_lyric_xmlHttp(res_id)
         //添加歌词
         if (xmlHttp.Status == 200) {
             var ncm_lrc = json(xmlHttp.responseText);
@@ -276,7 +333,7 @@ function lrc_merge(olrc, tlrc) {
         counter = (counter == -1) ? 9 : counter;
         set+=counter;
     }
-	set = Math.round(set/5);
+    set = Math.round(set/5);
     var i = 0;
     var l = tlrc.length;
     var lrc = [];
