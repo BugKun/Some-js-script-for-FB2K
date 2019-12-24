@@ -48,3 +48,12 @@ var offset=-20;
 也可在参数选项：显示 搜索模板 在“cover.jpg”下添加“Cover[-%artist%]-%title%.jpg”，以在封面显示器面板显示；
 
 载入错误请重新加载；
+
+
+## 个人修改
+按个人需求修改了双语歌词显示的顺序  
+支持了最新的API及NeteaseCloudMusicApi（可选开启）
+```javascript
+// 获取歌曲信息和歌词的API: 1：使用原有的API，2：使用NeteaseCloudMusicApi
+var apiType = 1;
+```
